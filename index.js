@@ -1,4 +1,4 @@
-cconst { 
+const { 
   Client, 
   GatewayIntentBits, 
   Events, 
