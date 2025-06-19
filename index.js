@@ -1,7 +1,23 @@
-const { Client, GatewayIntentBits, Events, SlashCommandBuilder, REST, Routes, ChannelType, PermissionsBitField } = require('discord.js');
+cconst { 
+  Client, 
+  GatewayIntentBits, 
+  Events, 
+  SlashCommandBuilder, 
+  REST, 
+  Routes, 
+  ChannelType, 
+  PermissionsBitField 
+} = require('discord.js');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+// 클라이언트 생성 시 필요한 인텐트 추가
+const client = new Client({ 
+  intents: [
+    GatewayIntentBits.Guilds, 
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent // 메시지 내용 접근 허용
+  ] 
+});
 
 // 슬래시 명령어 정의
 const commands = [
@@ -121,6 +137,15 @@ client.on(Events.InteractionCreate, async interaction => {
         }
       }
     }, 10 * 1000);
+  }
+});
+
+// ✅ horikawa 메시지 응답 처리
+client.on(Events.MessageCreate, async message => {
+  if (message.author.bot) return;
+
+  if (message.content.toLowerCase() === 'horikawa') {
+    await message.channel.send('✨ 아루지가 부르셨어요? 무슨 일이신가요?');
   }
 });
 
