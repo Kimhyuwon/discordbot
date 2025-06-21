@@ -8,18 +8,51 @@ const {
   ChannelType, 
   PermissionsBitField 
 } = require('discord.js');
+const https = require('https');
 require('dotenv').config();
 
-// 클라이언트 생성 시 필요한 인텐트 추가
 const client = new Client({ 
   intents: [
     GatewayIntentBits.Guilds, 
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent // 메시지 내용 접근 허용
-  ] 
+    GatewayIntentBits.MessageContent
+  ]
 });
 
-// 슬래시 명령어 정의
+let cachedServerTime = new Date();
+let localSystemTime = new Date();
+
+function updateServerTimeFromNaver() {
+  const options = {
+    method: 'HEAD',
+    host: 'www.naver.com'
+  };
+
+  const req = https.request(options, res => {
+    const serverDateHeader = res.headers.date;
+    if (serverDateHeader) {
+      cachedServerTime = new Date(serverDateHeader);
+      localSystemTime = new Date();
+      console.log(`[서버 시각 동기화] ${cachedServerTime.toLocaleString()}`);
+    }
+  });
+
+  req.on('error', error => {
+    console.error('⛔ 네이버 시간 요청 실패:', error);
+  });
+
+  req.end();
+}
+
+function getCurrentServerTime() {
+  const now = new Date();
+  const delta = now - localSystemTime;
+  return new Date(cachedServerTime.getTime() + delta);
+}
+
+updateServerTimeFromNaver();
+setInterval(updateServerTimeFromNaver, 60 * 60 * 1000);
+
 const commands = [
   new SlashCommandBuilder()
     .setName('타이머')
@@ -49,7 +82,6 @@ const commands = [
     )
 ].map(command => command.toJSON());
 
-// 명령어 등록
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 client.once(Events.ClientReady, async () => {
@@ -65,26 +97,23 @@ client.once(Events.ClientReady, async () => {
     console.error('❌ 슬래시 명령어 등록 실패:', error);
   }
 
-  // 🕛 정오 알림
   setInterval(() => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
+    const currentTime = getCurrentServerTime();
+    const hours = currentTime.getHours();
+    const minutes = currentTime.getMinutes();
 
     if (hours === 12 && minutes === 0) {
       const channel = client.channels.cache.get(process.env.CHANNEL_ID);
       if (channel) {
-        channel.send('점심시간이에요! 오늘은 아루지가 좋아하는 음식으로 준비했어요. 🍚');
+        channel.send('점심시간이에요! 오늘은 아루지가 좋아하는 음식으로 준비했어요. 🍚 ');
       }
     }
-  }, 60 * 1000); // 1분마다 체크
+  }, 60 * 1000);
 });
 
-// 슬래시 명령어 처리
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  // 타이머
   if (interaction.commandName === '타이머') {
     const minutes = interaction.options.getInteger('분');
     const milliseconds = minutes * 60 * 1000;
@@ -96,7 +125,6 @@ client.on(Events.InteractionCreate, async interaction => {
     }, milliseconds);
   }
 
-  // 알림
   else if (interaction.commandName === '알림') {
     const targetHour = interaction.options.getInteger('시');
     const targetMinute = interaction.options.getInteger('분');
@@ -124,7 +152,7 @@ client.on(Events.InteractionCreate, async interaction => {
     await interaction.reply(`✅ ${targetHour}시 ${targetMinute}분에 **#${channelName}** 채널에 알림을 드릴게요!`);
 
     const checkInterval = setInterval(async () => {
-      const now = new Date();
+      const now = getCurrentServerTime();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
@@ -140,7 +168,6 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// ✅ horikawa 메시지 응답 처리
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
 
