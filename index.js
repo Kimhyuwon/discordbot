@@ -19,15 +19,12 @@ const client = new Client({
   ]
 });
 
+// ===== 서버 시간 동기화 =====
 let cachedServerTime = new Date();
 let localSystemTime = new Date();
 
 function updateServerTimeFromNaver() {
-  const options = {
-    method: 'HEAD',
-    host: 'www.naver.com'
-  };
-
+  const options = { method: 'HEAD', host: 'www.naver.com' };
   const req = https.request(options, res => {
     const serverDateHeader = res.headers.date;
     if (serverDateHeader) {
@@ -36,11 +33,7 @@ function updateServerTimeFromNaver() {
       console.log(`[서버 시각 동기화] ${cachedServerTime.toLocaleString()}`);
     }
   });
-
-  req.on('error', error => {
-    console.error('⛔ 네이버 시간 요청 실패:', error);
-  });
-
+  req.on('error', error => console.error('⛔ 네이버 시간 요청 실패:', error));
   req.end();
 }
 
@@ -53,6 +46,7 @@ function getCurrentServerTime() {
 updateServerTimeFromNaver();
 setInterval(updateServerTimeFromNaver, 60 * 60 * 1000);
 
+// ===== 슬래시 명령어 정의 =====
 const commands = [
   new SlashCommandBuilder()
     .setName('타이머')
@@ -84,19 +78,18 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
+// ===== 봇 준비 이벤트 =====
 client.once(Events.ClientReady, async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   try {
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log('✅ 슬래시 명령어 등록 완료');
   } catch (error) {
     console.error('❌ 슬래시 명령어 등록 실패:', error);
   }
 
+  // 점심 알림
   setInterval(() => {
     const currentTime = getCurrentServerTime();
     const hours = currentTime.getHours();
@@ -111,6 +104,7 @@ client.once(Events.ClientReady, async () => {
   }, 60 * 1000);
 });
 
+// ===== Interaction 처리 =====
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -168,16 +162,35 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
+// ===== MessageCreate 처리 (horikawa + greetings) =====
+const greetings = {
+  "좋은아침": "좋은 아침이에요, 주군..",
+  "좋은오후": "좋은 오후예요! 점심은 드셨어요?",
+  "좋은저녁": "좋은 저녁이네요, 주군! 저녁은 챙기셨어요?",
+  "좋은밤": "좋은 밤이에요, 주군. 너무 오랫동안 깨어있진 마세요!",
+  "좋은새벽": "주군! 아직도 주무시지 않는거예요?"
+};
+
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
 
-  if (message.content.toLowerCase() === 'horikawa') {
+  const userInput = message.content.trim().replace(/ /g, "").toLowerCase();
+
+  // horikawa 반응
+  if (userInput === 'horikawa') {
     await message.channel.send('✨ 아루지가 부르셨어요? 무슨 일이신가요?');
+  }
+
+  // greetings 반응
+  else if (greetings[userInput]) {
+    await message.channel.send(`호리카와: ${greetings[userInput]}`);
   }
 });
 
+// ===== 로그인 =====
 client.login(process.env.TOKEN);
 
+// ===== Express 서버 =====
 const express = require("express");
 const app = express();
 
